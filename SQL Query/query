@@ -1,0 +1,136 @@
+--Cleaning Data In SQL Queries
+SELECT * 
+FROM public.nashville_housing
+
+--Standardize date format
+SELECT saledate,
+       CAST(saledate AS DATE) AS saledate_converted
+FROM public.nashville_housing
+
+ALTER TABLE Nashville_Housing
+Add SaleDateConverted Date;
+
+UPDATE nashville_housing
+SET saledateconverted = saledate::DATE;
+
+--Populate Property Addresss data
+SELECT *
+From public.nashville_housing
+ORDER BY ParcelID
+
+SELECT a.ParcelID, a.PropertyAddress, b.ParcelID, b.PropertyAddress, COALESCE(a.PropertyAddress, b.PropertyAddress)
+FROM public.nashville_housing a
+JOIN public.nashville_housing b
+ON a.ParcelID = b.ParcelID
+AND a.UniqueID <> b.UniqueID
+WHERE a.PropertyAddress IS NULL
+
+UPDATE public.nashville_housing AS a
+SET propertyaddress = b.propertyaddress
+FROM public.nashville_housing AS b
+WHERE a.parcelid = b.parcelid
+  AND a.uniqueid <> b.uniqueid
+  AND a.propertyaddress IS NULL
+
+--Breaking out Address into Individual Columns (Address, City, State)
+SELECT PropertyAddress
+FROM public.nashville_housing
+
+SELECT
+    TRIM(SPLIT_PART(propertyaddress, ',', 1)) AS address,
+    TRIM(SPLIT_PART(propertyaddress, ',', 2)) AS city
+FROM public.nashville_housing
+
+
+ALTER TABLE public.nashville_housing
+ADD COLUMN propertysplitaddress TEXT;
+
+ALTER TABLE public.nashville_housing
+ADD COLUMN propertysplitcity TEXT;
+
+UPDATE public.nashville_housing
+SET
+    propertysplitaddress = TRIM(SPLIT_PART(propertyaddress, ',', 1)),
+    propertysplitcity = TRIM(SPLIT_PART(propertyaddress, ',', 2));
+
+Select *
+FROM public.nashville_housing
+
+Select OwnerAddress
+FROM public.nashville_housing
+
+SELECT
+    TRIM(SPLIT_PART(owneraddress, ',', 1)) AS owner_address,
+    TRIM(SPLIT_PART(owneraddress, ',', 2)) AS owner_city,
+    TRIM(SPLIT_PART(owneraddress, ',', 3)) AS owner_state
+FROM public.nashville_housing;
+
+ALTER TABLE public.nashville_housing
+ADD COLUMN ownersplitaddress TEXT,
+ADD COLUMN ownersplitcity TEXT,
+ADD COLUMN ownersplitstate TEXT;
+
+UPDATE public.nashville_housing
+SET
+    ownersplitaddress = TRIM(SPLIT_PART(owneraddress, ',', 1)),
+    ownersplitcity = TRIM(SPLIT_PART(owneraddress, ',', 2)),
+    ownersplitstate = TRIM(SPLIT_PART(owneraddress, ',', 3));
+
+Select *
+FROM public.nashville_housing;
+
+-- Change Y and N to Yes and No in "Sold as Vacant" field
+Select Distinct(SoldAsVacant), Count(SoldAsVacant)
+FROM public.nashville_housing
+Group by SoldAsVacant
+order by 2
+
+SELECT
+    soldasvacant,
+    CASE
+        WHEN soldasvacant = 'Y' THEN 'Yes'
+        WHEN soldasvacant = 'N' THEN 'No'
+        ELSE soldasvacant
+    END AS soldasvacant_updated
+FROM public.nashville_housing;
+
+UPDATE public.nashville_housing
+SET soldasvacant = CASE
+    WHEN soldasvacant = 'Y' THEN 'Yes'
+    WHEN soldasvacant = 'N' THEN 'No'
+    ELSE soldasvacant
+END;
+
+--Remove Duplicates
+WITH RowNumCTE AS(
+Select *,
+	ROW_NUMBER() OVER (
+	PARTITION BY ParcelID,
+				 PropertyAddress,
+				 SalePrice,
+				 SaleDate,
+				 LegalReference
+				 ORDER BY
+					UniqueID
+					) row_num
+    FROM public.nashville_housing
+)
+
+SELECT *
+FROM RowNumCTE
+WHERE row_num > 1
+ORDER BY propertyaddress;
+
+--Delete Unused Columns
+Select *
+FROM public.nashville_housing
+
+
+ALTER TABLE public.nashville_housing
+DROP COLUMN owneraddress,
+DROP COLUMN taxdistrict,
+DROP COLUMN propertyaddress,
+DROP COLUMN saledate;
+
+SELECT *
+FROM public.nashville_housing
